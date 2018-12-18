@@ -1,4 +1,4 @@
-# Introduction to the Cyclic train timetabling program
+# Introduction to the cyclic train timetabling program
 Cyclic train timetabling based on extended time-discretized time-space network modeling framework
 
 ### Input datasets include:
