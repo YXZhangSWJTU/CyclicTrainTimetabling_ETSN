@@ -5,7 +5,7 @@ Cyclic train timetabling based on extended time-discretized time-space network m
 
 (1) Input_node.csv and input_link.csv contain the railway network structure, including stations and sections;
 
-(2) input_node.csv specifies the given line plan information, including frequency, origin station, destinatnion station, minimum and maximum dwell times in the stations, minimum and maximum running times in the sections.
+(2) input_agent.csv specifies the given line plan information, including frequency, origin station, destinatnion station, minimum and maximum dwell times in the stations, minimum and maximum running times in the sections.
 
 ### How to visualize the cyclic train diagram:
 
