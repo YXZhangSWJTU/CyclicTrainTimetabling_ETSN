@@ -1,4 +1,4 @@
-﻿//cyclic train timetabling based on extended time-discretized space-time network
+//cyclic train timetabling based on extended time-discritized space-time network
 
 #include "stdafx.h"
 #include <iostream>
@@ -19,7 +19,7 @@
 #define _MAX_LABEL_COST 999999
 #define _MAX_STATES 1
 
-#define _MAX_NUMBER_OF_TIME_INTERVALS 480
+#define _MAX_NUMBER_OF_TIME_INTERVALS 720
 
 // Linear congruential generator 
 #define LCG_a 17364
@@ -37,22 +37,42 @@ FILE* g_pFileDebugLog_ADMM = NULL;
 FILE* g_pFileOutputLog = NULL;
 FILE* g_LR_iteration_Log = NULL;
 FILE* g_ADMM_iteration_Log = NULL;
+FILE* g_LR_algorithmic_times_Log = NULL;
+FILE* g_ADMM_algorithmic_times_Log = NULL;
 
 int g_cycle_length = 120;
-int g_number_of_simulation_intervals = 480;
-int g_number_of_intervals_in_master_schedule = 240;
+int g_number_of_simulation_intervals = 720;
+int g_number_of_intervals_in_master_schedule = 360;
 
 CTime g_SolutionStartTime;
+clock_t LR_Initialization_start, LR_Initialization_end;
+clock_t LR_LB_start, LR_LB_end;
+clock_t LR_UB_start, LR_UB_end;
+clock_t LR_LMU_start, LR_LMU_end;
+
+float LR_Initialization_time = 0;
+float LR_LB_time = 0;
+float LR_UB_time = 0;
+float LR_LMU_time = 0;
+
+clock_t ADMM_Initialization_start, ADMM_Initialization_end;
+clock_t ADMM_LB_start, ADMM_LB_end;
+clock_t ADMM_UB_start, ADMM_UB_end;
+clock_t ADMM_LMU_start, ADMM_LMU_end;
+float ADMM_Initialization_time = 0;
+float ADMM_LB_time = 0;
+float ADMM_UB_time = 0;
+float ADMM_LMU_time = 0;
 
 int g_dp_algorithm_debug_flag = 0;
-int g_LR_algorithm_debug_flag = 3;
+int g_LR_algorithm_debug_flag = 3; //default 3
 int g_ADMM_algorithm_debug_flag = 3;
 int g_upper_bound_solution_check_flag = 1;
 int g_deduce_feasible_upperbound_in_ADMM_flag = 0;
 bool g_output_log_flag = true;
 int H = 3; // the number of copies
 
-		   //headway requirements
+//headway requirements
 int g_departure_headway_stop = 5;
 int g_departure_headway_passing = 3;
 int g_arrival_headway_stop = 4;
@@ -67,16 +87,16 @@ int g_number_of_links = 0;
 int g_number_of_nodes = 0;
 int g_number_of_zones = 0;
 
-int g_number_of_LR_iterations = 1000;
+int g_number_of_LR_iterations = 0;
 int g_number_of_ADMM_iterations = 1000;
 
 int penalty_parameter_increasing_strategy = 1; //0, simple; 1, complex
-int number_of_lagrangian_iterations_for_ADMM = 300; //used in strategy 1
+int number_of_lagrangian_iterations_for_ADMM = 200; //used in strategy 1
 int g_penalty_gamma_ratio = 2;
 vector<int> g_penalty_term_vector;
 
-float g_penalty_RHO_initial = 2;
-float g_penalty_RHO_incremental = 3;
+float g_penalty_RHO_initial = 4;
+float g_penalty_RHO_incremental = 2;
 float g_gama_ratio = 1;
 int g_penalty_RHO_update_iteration = 20;
 int g_ADMM_feasible_and_stop_flag = 1;
@@ -1181,7 +1201,7 @@ public:
 										{
 											for (int fre = 0; fre < p_agent->frequency; fre++)
 											{
-												for (int h = 0; h < H - 1; h++)
+												for (int h = 0; h <= H; h++)
 												{
 													int temp_time = min(time + fre * ceil(g_cycle_length / p_agent->frequency) + h * g_cycle_length, g_number_of_simulation_intervals - 1);
 
@@ -1216,7 +1236,7 @@ public:
 										{
 											for (int fre = 0; fre < p_agent->frequency; fre++)
 											{
-												for (int h = 0; h < H - 1; h++)
+												for (int h = 0; h <= H; h++)
 												{
 													int temp_time = min(time + fre * ceil(g_cycle_length / p_agent->frequency) + h * g_cycle_length, g_number_of_simulation_intervals - 1);
 
@@ -1254,7 +1274,7 @@ public:
 										{
 											for (int f = 0; f < p_agent->frequency; f++)
 											{
-												for (int h = 0; h < H - 1; h++)
+												for (int h = 0; h <= H; h++)
 												{
 													int time_temp = min(time + f * ceil(g_cycle_length / p_agent->frequency) + h * g_cycle_length, g_number_of_simulation_intervals - 1);
 													sum_of_multipliers += g_link_vector[link_no].state_time_dependent_departure_LR_multiplier_matrix[time_temp][w1];
@@ -1266,7 +1286,7 @@ public:
 										{
 											for (int f = 0; f < p_agent->frequency; f++)
 											{
-												for (int h = 0; h < H - 1; h++)
+												for (int h = 0; h <= H; h++)
 												{
 													int time_temp = min(time + f * ceil(g_cycle_length / p_agent->frequency) + h * g_cycle_length, g_number_of_simulation_intervals - 1);
 													sum_of_multipliers += g_link_vector[link_no].state_time_dependent_arrival_LR_multiplier_matrix[time_temp][w1];
@@ -1280,7 +1300,7 @@ public:
 										{
 											for (int f = 0; f < p_agent->frequency; f++)
 											{
-												for (int h = 0; h < H - 1; h++)
+												for (int h = 0; h <= H; h++)
 												{
 													int time_temp = min(time + f * ceil(g_cycle_length / p_agent->frequency) + h * g_cycle_length, g_number_of_simulation_intervals - 1);
 													sum_of_multipliers += g_link_vector[link_no].state_dependent_time_dependent_departure_ADMM_multiplier_matrix[time_temp][w1];
@@ -1292,7 +1312,7 @@ public:
 										{
 											for (int f = 0; f < p_agent->frequency; f++)
 											{
-												for (int h = 0; h < H - 1; h++)
+												for (int h = 0; h <= H; h++)
 												{
 													int time_temp = min(time + f * ceil(g_cycle_length / p_agent->frequency) + h * g_cycle_length, g_number_of_simulation_intervals - 1);
 													sum_of_multipliers += g_link_vector[link_no].state_dependent_time_dependent_arrival_ADMM_multiplier_matrix[time_temp][w1];
@@ -1594,7 +1614,7 @@ public:
 					{
 						for (int fre = 0; fre < p_agent->frequency; fre++)
 						{
-							for (int h = 0; h < H - 1; h++)
+							for (int h = 0; h <= H; h++)
 							{
 								time = min(temp_time + fre * ceil(g_cycle_length / p_agent->frequency) + h * g_cycle_length, g_number_of_simulation_intervals - 1);
 								g_link_vector[link_seq_no].departure_state_dependent_travel_time_matrix[time][w1] = g_link_vector[link_seq_no].departure_state_dependent_travel_time_matrix[time][w1] - 1;  // minus -1
@@ -1612,7 +1632,7 @@ public:
 					{
 						for (int fre = 0; fre < p_agent->frequency; fre++)
 						{
-							for (int h = 0; h < H - 1; h++)
+							for (int h = 0; h <= H; h++)
 							{
 								time = min(temp_time + fre * ceil(g_cycle_length / p_agent->frequency) + h * g_cycle_length, g_number_of_simulation_intervals - 1);
 								g_link_vector[link_seq_no].arrival_state_dependent_travel_time_matrix[time][w1] = g_link_vector[link_seq_no].arrival_state_dependent_travel_time_matrix[time][w1] - 1;  // minus -1
@@ -1810,7 +1830,7 @@ public:
 										{
 											for (int f = 0; f < p_agent->frequency; f++)
 											{
-												for (int h = 0; h < H - 1; h++)
+												for (int h = 0; h <= H; h++)
 												{
 													int time_temp = min(time + f * ceil(g_cycle_length / p_agent->frequency) + h * g_cycle_length, g_number_of_simulation_intervals - 1);
 													sum_of_multipliers += g_link_vector[link_no].state_time_dependent_departure_LR_multiplier_matrix[time_temp][w1];
@@ -1822,7 +1842,7 @@ public:
 										{
 											for (int f = 0; f < p_agent->frequency; f++)
 											{
-												for (int h = 0; h < H - 1; h++)
+												for (int h = 0; h <= H; h++)
 												{
 													int time_temp = min(time + f * ceil(g_cycle_length / p_agent->frequency) + h * g_cycle_length, g_number_of_simulation_intervals - 1);
 													sum_of_multipliers += g_link_vector[link_no].state_time_dependent_arrival_LR_multiplier_matrix[time_temp][w1];
@@ -2231,7 +2251,7 @@ public:
 										{
 											for (int f = 0; f < p_agent->frequency; f++)
 											{
-												for (int h = 0; h < H - 1; h++)
+												for (int h = 0; h <= H; h++)
 												{
 													int time_temp = min(time + f * ceil(g_cycle_length / p_agent->frequency) + h * g_cycle_length, g_number_of_simulation_intervals - 1);
 													sum_of_multipliers += g_link_vector[link_no].state_dependent_time_dependent_departure_ADMM_multiplier_matrix[time_temp][w1];
@@ -2243,7 +2263,7 @@ public:
 										{
 											for (int f = 0; f < p_agent->frequency; f++)
 											{
-												for (int h = 0; h < H - 1; h++)
+												for (int h = 0; h <= H; h++)
 												{
 													int time_temp = min(time + f * ceil(g_cycle_length / p_agent->frequency) + h * g_cycle_length, g_number_of_simulation_intervals - 1);
 													sum_of_multipliers += g_link_vector[link_no].state_dependent_time_dependent_arrival_ADMM_multiplier_matrix[time_temp][w1];
@@ -2859,7 +2879,7 @@ bool g_upper_bound_solution_feasibility_check(int g_upper_bound_solution_check_f
 					{
 						for (int fre = 0; fre < p_agent->frequency; fre++)
 						{
-							for (int h = 0; h < H - 1; h++)
+							for (int h = 0; h <= H; h++)
 							{
 								int temp_time = min(time + fre * ceil(g_cycle_length / p_agent->frequency) + h * g_cycle_length, g_number_of_simulation_intervals - 1);
 								g_link_vector[link_seq_no].g_link_time_visit_counts_departure_in_upper_bound[temp_time] += 1;
@@ -2875,7 +2895,7 @@ bool g_upper_bound_solution_feasibility_check(int g_upper_bound_solution_check_f
 					{
 						for (int fre = 0; fre < p_agent->frequency; fre++)
 						{
-							for (int h = 0; h < H - 1; h++)
+							for (int h = 0; h <= H; h++)
 							{
 								int temp_time = min(time + fre * ceil(g_cycle_length / p_agent->frequency) + h * g_cycle_length, g_number_of_simulation_intervals - 1);
 								g_link_vector[link_seq_no].g_link_time_visit_counts_arrival_in_upper_bound[temp_time] += 1;
@@ -3044,7 +3064,7 @@ bool g_UpdateResourceUsageStatus()
 					{
 						for (int f = 0; f < p_agent->frequency; f++)
 						{
-							for (int h = 0; h < H - 1; h++)
+							for (int h = 0; h <= H; h++)
 							{
 								int time = min(t + f * ceil(g_cycle_length / p_agent->frequency) + h * g_cycle_length, g_number_of_simulation_intervals - 1);
 								g_link_vector[link_seq_no].g_link_time_departure_visit_counts[time] += 1;
@@ -3060,7 +3080,7 @@ bool g_UpdateResourceUsageStatus()
 					{
 						for (int f = 0; f < p_agent->frequency; f++)
 						{
-							for (int h = 0; h < H - 1; h++)
+							for (int h = 0; h <= H; h++)
 							{
 								int time = min(t + f * ceil(g_cycle_length / p_agent->frequency) + h * g_cycle_length, g_number_of_simulation_intervals - 1);
 								g_link_vector[link_seq_no].g_link_time_arrival_visit_counts[time] += 1;
@@ -3324,6 +3344,9 @@ bool g_LR_Optimization(STSNetwork pSTSNetwork[])
 	cout << "Lagrangian Relaxation Optimization..." << endl;
 
 	g_SolutionStartTime = CTime::GetCurrentTime();
+
+	LR_Initialization_start = clock();
+
 	int number_of_threads = 1;
 	int deduce_flag = 0;
 	int w = 0;
@@ -3363,11 +3386,17 @@ bool g_LR_Optimization(STSNetwork pSTSNetwork[])
 	if (g_LR_algorithm_debug_flag == 3)
 	{
 		fprintf(g_LR_iteration_Log, "iteration number, cpu time, best lower bound, best upper bound, optimality_gap\n");
+		fprintf(g_LR_algorithmic_times_Log, "Initialization, Lower bound solution generation, Upper bound solution generation, Lagrangian multipliers updating\n");
 	}
+
+	LR_Initialization_end = clock();
+	LR_Initialization_time = (LR_Initialization_end - LR_Initialization_start) / 1000.0f;
 
 	//loop for each LR iteration
 	for (int LR_iteration = 0; LR_iteration < g_number_of_LR_iterations; LR_iteration++)  // first loop
 	{
+		LR_LMU_start = clock();
+
 		if ((LR_iteration + 1) % 200 == 0)
 			cout << LR_iteration + 1 << "/" << g_number_of_LR_iterations << endl;
 
@@ -3439,6 +3468,11 @@ bool g_LR_Optimization(STSNetwork pSTSNetwork[])
 			}
 		}
 
+		LR_LMU_end = clock();
+		LR_LMU_time += (LR_LMU_end - LR_LMU_start) / 1000.0f; //sum of the lr multipers updating time
+
+		LR_LB_start = clock();
+
 		// reset local LR lower bound
 		float LR_global_lower_bound = 0;
 		float total_price = 0;
@@ -3490,6 +3524,11 @@ bool g_LR_Optimization(STSNetwork pSTSNetwork[])
 
 		fprintf(g_pFileDebugLog_LR, "Space-time path of the trains in the lower bound solution:\n");
 		Output_SpaceTime_Path();
+
+		LR_LB_end = clock();
+		LR_LB_time += (LR_LB_end - LR_LB_start) / 1000.0f; //sum of the lr lb generation time
+
+		LR_UB_start = clock();
 
 		bool is_success_in_finding_upperbound_solution = true;
 
@@ -3573,6 +3612,9 @@ bool g_LR_Optimization(STSNetwork pSTSNetwork[])
 		fprintf(g_pFileDebugLog_LR, "Space-time path of the trains in the upper bound solution:\n");
 		Output_SpaceTime_Path_Upper_Bound();
 
+		LR_UB_end = clock();
+		LR_UB_time += (LR_UB_end - LR_UB_start) / 1000.0f; //sum of the lr ub generation time
+
 		optimality_gap = (g_best_upper_bound - g_best_lower_bound) / g_best_lower_bound;
 
 		if (g_output_log_flag == true)
@@ -3592,6 +3634,11 @@ bool g_LR_Optimization(STSNetwork pSTSNetwork[])
 
 	} //End for LR iteration
 
+	if (g_LR_algorithm_debug_flag == 3)
+	{
+		fprintf(g_LR_algorithmic_times_Log, "%0.2f, %0.2f, %0.2f, %0.2f\n", LR_Initialization_time, LR_LB_time, LR_UB_time, LR_LMU_time);
+	}
+
 	g_OutAgentCSVFile_FromSimulation_LR();
 
 	g_LR_FreStop_best_lower_bound.push_back(g_best_lower_bound);
@@ -3607,6 +3654,8 @@ bool g_ADMM_Optimization(STSNetwork pSTSNetwork[])
 	cout << "ADMM Optimization..." << endl;
 
 	g_SolutionStartTime = CTime::GetCurrentTime();
+	ADMM_Initialization_start = clock();
+
 	int number_of_threads = 1;
 	int w = 0;
 	int deduce_flag = 2;
@@ -3655,6 +3704,8 @@ bool g_ADMM_Optimization(STSNetwork pSTSNetwork[])
 	if (g_ADMM_algorithm_debug_flag == 3)
 	{
 		fprintf(g_ADMM_iteration_Log, "iteration number, cpu time, g_penalty_RHO_initial, g_primal_residual_error, penalty_term, best lower bound, best feasible lower bound, optimality_gap\n");
+
+		fprintf(g_ADMM_algorithmic_times_Log, "Initialization, Lower bound solution generation, ADMM solution generation, Lagrangian multipliers and penalty parameter value updating\n");
 	}
 
 	//store the initial sequence
@@ -3666,9 +3717,14 @@ bool g_ADMM_Optimization(STSNetwork pSTSNetwork[])
 		m_agent_no_vector.push_back(a);
 	}
 
+	ADMM_Initialization_end = clock();
+	ADMM_Initialization_time = (ADMM_Initialization_end - ADMM_Initialization_start) / 1000.0f;
+
 	//loop for each ADMM iteration
 	for (int ADMM_iteration = 0; ADMM_iteration < g_number_of_ADMM_iterations; ADMM_iteration++)  // first loop
 	{
+		ADMM_UB_start = clock();
+
 		if ((ADMM_iteration + 1) % 200 == 0)
 		{
 			cout << ADMM_iteration + 1 << "/" << g_number_of_ADMM_iterations << endl;
@@ -3834,7 +3890,7 @@ bool g_ADMM_Optimization(STSNetwork pSTSNetwork[])
 								{
 									if (agent == agent_no) //minus
 									{
-										for (int h = 0; h < H - 1; h++)
+										for (int h = 0; h <= H; h++)
 										{
 											int time = min(t + f * ceil(g_cycle_length / g_agent_vector[agent].frequency) + h * g_cycle_length, g_number_of_simulation_intervals - 1);
 											g_link_vector[link_seq_no].g_link_time_departure_visit_counts[time] -= 1;
@@ -3843,7 +3899,7 @@ bool g_ADMM_Optimization(STSNetwork pSTSNetwork[])
 									}
 									else if (agent == former_train_no) //plus
 									{
-										for (int h = 0; h < H - 1; h++)
+										for (int h = 0; h <= H; h++)
 										{
 											int time = min(t + f * ceil(g_cycle_length / g_agent_vector[agent].frequency) + h * g_cycle_length, g_number_of_simulation_intervals - 1);
 											g_link_vector[link_seq_no].g_link_time_departure_visit_counts[time] += 1;
@@ -3862,7 +3918,7 @@ bool g_ADMM_Optimization(STSNetwork pSTSNetwork[])
 								{
 									if (agent == agent_no) //minus
 									{
-										for (int h = 0; h < H - 1; h++)
+										for (int h = 0; h <= H; h++)
 										{
 											int time = min(t + f * ceil(g_cycle_length / g_agent_vector[agent].frequency) + h * g_cycle_length, g_number_of_simulation_intervals - 1);
 											g_link_vector[link_seq_no].g_link_time_arrival_visit_counts[time] -= 1;
@@ -3871,7 +3927,7 @@ bool g_ADMM_Optimization(STSNetwork pSTSNetwork[])
 									}
 									else if (agent == former_train_no) //plus
 									{
-										for (int h = 0; h < H - 1; h++)
+										for (int h = 0; h <= H; h++)
 										{
 											int time = min(t + f * ceil(g_cycle_length / g_agent_vector[agent].frequency) + h * g_cycle_length, g_number_of_simulation_intervals - 1);
 											g_link_vector[link_seq_no].g_link_time_arrival_visit_counts[time] += 1;
@@ -3901,15 +3957,20 @@ bool g_ADMM_Optimization(STSNetwork pSTSNetwork[])
 							int same_link_no = g_internal_link_no_map[g_link_vector[l].same_link_id];
 							link_visit_counts += g_link_vector[same_link_no].g_link_time_departure_visit_counts[t];
 
-							g_link_vector[l].state_dependent_time_dependent_departure_ADMM_multiplier_matrix[t][w] = max(0, g_link_vector[l].state_time_dependent_departure_LR_multiplier_matrix[t][w] +
-								(g_penalty_RHO_initial / 2.0f) * (2 * link_visit_counts - g_link_vector[l].time_depedent_capacity_matrix[t]));
+							//g_link_vector[l].state_dependent_time_dependent_departure_ADMM_multiplier_matrix[t][w] = max(0, g_link_vector[l].state_time_dependent_departure_LR_multiplier_matrix[t][w] +
+							//	(g_penalty_RHO_initial / 2.0f) * (2 * link_visit_counts - g_link_vector[l].time_depedent_capacity_matrix[t]));
+							g_link_vector[l].state_dependent_time_dependent_departure_ADMM_multiplier_matrix[t][w] = g_link_vector[l].state_time_dependent_departure_LR_multiplier_matrix[t][w] +
+								(g_penalty_RHO_initial / 2.0f) * max(0, (2 * link_visit_counts - g_link_vector[l].time_depedent_capacity_matrix[t]));
 
 							g_link_vector[same_link_no].state_dependent_time_dependent_departure_ADMM_multiplier_matrix[t][w] = g_link_vector[l].state_dependent_time_dependent_departure_ADMM_multiplier_matrix[t][w];
 						}
 						else
 						{
-							g_link_vector[l].state_dependent_time_dependent_departure_ADMM_multiplier_matrix[t][w] = max(0, g_link_vector[l].state_time_dependent_departure_LR_multiplier_matrix[t][w] +
-								(g_penalty_RHO_initial / 2.0f) * (2 * link_visit_counts - g_link_vector[l].time_depedent_capacity_matrix[t]));
+							//g_link_vector[l].state_dependent_time_dependent_departure_ADMM_multiplier_matrix[t][w] = max(0, g_link_vector[l].state_time_dependent_departure_LR_multiplier_matrix[t][w] +
+								//(g_penalty_RHO_initial / 2.0f) * (2 * link_visit_counts - g_link_vector[l].time_depedent_capacity_matrix[t]));
+							g_link_vector[l].state_dependent_time_dependent_departure_ADMM_multiplier_matrix[t][w] = g_link_vector[l].state_time_dependent_departure_LR_multiplier_matrix[t][w] +
+								(g_penalty_RHO_initial / 2.0f) * max(0, (2 * link_visit_counts - g_link_vector[l].time_depedent_capacity_matrix[t]));
+
 						}
 
 						//arrival
@@ -3920,15 +3981,19 @@ bool g_ADMM_Optimization(STSNetwork pSTSNetwork[])
 							int same_link_no = g_internal_link_no_map[g_link_vector[l].same_link_id];
 							link_visit_counts += g_link_vector[same_link_no].g_link_time_arrival_visit_counts[t];
 
-							g_link_vector[l].state_dependent_time_dependent_arrival_ADMM_multiplier_matrix[t][w] = max(0, g_link_vector[l].state_time_dependent_arrival_LR_multiplier_matrix[t][w] +
-								(g_penalty_RHO_initial / 2.0f) * (2 * link_visit_counts - g_link_vector[l].time_depedent_capacity_matrix[t]));
+							//g_link_vector[l].state_dependent_time_dependent_arrival_ADMM_multiplier_matrix[t][w] = max(0, g_link_vector[l].state_time_dependent_arrival_LR_multiplier_matrix[t][w] +
+							//	(g_penalty_RHO_initial / 2.0f) * (2 * link_visit_counts - g_link_vector[l].time_depedent_capacity_matrix[t]));
+							g_link_vector[l].state_dependent_time_dependent_arrival_ADMM_multiplier_matrix[t][w] = g_link_vector[l].state_time_dependent_arrival_LR_multiplier_matrix[t][w] +
+								(g_penalty_RHO_initial / 2.0f) * max(0, (2 * link_visit_counts - g_link_vector[l].time_depedent_capacity_matrix[t]));
 
 							g_link_vector[same_link_no].state_dependent_time_dependent_arrival_ADMM_multiplier_matrix[t][w] = g_link_vector[l].state_dependent_time_dependent_arrival_ADMM_multiplier_matrix[t][w];
 						}
 						else
 						{
-							g_link_vector[l].state_dependent_time_dependent_arrival_ADMM_multiplier_matrix[t][w] = max(0, g_link_vector[l].state_time_dependent_arrival_LR_multiplier_matrix[t][w] +
-								(g_penalty_RHO_initial / 2.0f) * (2 * link_visit_counts - g_link_vector[l].time_depedent_capacity_matrix[t]));
+							//g_link_vector[l].state_dependent_time_dependent_arrival_ADMM_multiplier_matrix[t][w] = max(0, g_link_vector[l].state_time_dependent_arrival_LR_multiplier_matrix[t][w] +
+							//	(g_penalty_RHO_initial / 2.0f) * (2 * link_visit_counts - g_link_vector[l].time_depedent_capacity_matrix[t]));
+							g_link_vector[l].state_dependent_time_dependent_arrival_ADMM_multiplier_matrix[t][w] = g_link_vector[l].state_time_dependent_arrival_LR_multiplier_matrix[t][w] +
+								(g_penalty_RHO_initial / 2.0f) * max(0, (2 * link_visit_counts - g_link_vector[l].time_depedent_capacity_matrix[t]));
 						}
 					}
 				}
@@ -3941,6 +4006,11 @@ bool g_ADMM_Optimization(STSNetwork pSTSNetwork[])
 				fprintf(g_pFileDebugLog_ADMM, "agent_id = %d, trip_price = %0.2f\n", agent_no, trip_price);
 			}
 		}
+
+		ADMM_UB_end = clock();
+		ADMM_UB_time += (ADMM_UB_end - ADMM_UB_start) / 1000.0f; //sum of the lr ub generation time
+
+		ADMM_LMU_start = clock();
 
 		//get the link counts
 		//reset the link (i, j, t) visit counts and usage flag
@@ -4040,7 +4110,7 @@ bool g_ADMM_Optimization(STSNetwork pSTSNetwork[])
 						{
 							for (int f = 0; f < g_agent_vector[a].frequency; f++)
 							{
-								for (int h = 0; h < H - 1; h++)
+								for (int h = 0; h <= H; h++)
 								{
 									int time = min(t + f * ceil(g_cycle_length / g_agent_vector[a].frequency) + h * g_cycle_length, g_number_of_simulation_intervals - 1);
 									g_link_vector[link_seq_no].g_link_time_departure_visit_counts[time] += 1;
@@ -4056,7 +4126,7 @@ bool g_ADMM_Optimization(STSNetwork pSTSNetwork[])
 						{
 							for (int f = 0; f < g_agent_vector[a].frequency; f++)
 							{
-								for (int h = 0; h < H - 1; h++)
+								for (int h = 0; h <= H; h++)
 								{
 									int time = min(t + f * ceil(g_cycle_length / g_agent_vector[a].frequency) + h * g_cycle_length, g_number_of_simulation_intervals - 1);
 									g_link_vector[link_seq_no].g_link_time_arrival_visit_counts[time] += 1;
@@ -4257,6 +4327,11 @@ bool g_ADMM_Optimization(STSNetwork pSTSNetwork[])
 			}
 		}
 
+		ADMM_LMU_end = clock();
+		ADMM_LMU_time += (ADMM_LMU_end - ADMM_LMU_start) / 1000.0f; //sum of the lr multipers updating time
+
+		ADMM_UB_start = clock();
+
 		g_reoptimization_flag = false;
 		int penalty_term = 0;
 
@@ -4302,6 +4377,9 @@ bool g_ADMM_Optimization(STSNetwork pSTSNetwork[])
 			}
 		}
 
+		ADMM_UB_end = clock();
+		ADMM_UB_time += (ADMM_UB_end - ADMM_UB_start) / 1000.0f; //sum of the lr ub generation time
+
 		g_penalty_term_vector.push_back(penalty_term);
 
 		g_primal_residual_error = min(g_primal_residual_error, penalty_term);
@@ -4317,6 +4395,8 @@ bool g_ADMM_Optimization(STSNetwork pSTSNetwork[])
 			g_agent_vector[a].path_link_TA_vector_temp = g_agent_vector[a].path_link_TA_vector;
 			g_agent_vector[a].path_link_TD_vector_temp = g_agent_vector[a].path_link_TD_vector;
 		}
+
+		ADMM_LB_start = clock();
 
 		g_agent_vectors_clear();
 		float total_price = 0;
@@ -4359,6 +4439,9 @@ bool g_ADMM_Optimization(STSNetwork pSTSNetwork[])
 
 		ADMM_global_lower_bound = total_price - total_resource_price;
 		g_best_lower_bound = max(g_best_lower_bound, ADMM_global_lower_bound);
+
+		ADMM_LB_end = clock();
+		ADMM_LB_time += (ADMM_LB_end - ADMM_LB_start) / 1000.0f; //sum of the lr lb generation time
 
 		//restore the path and time vectors
 		for (int a = 0; a < g_agent_vector.size(); a++)
@@ -4559,6 +4642,11 @@ bool g_ADMM_Optimization(STSNetwork pSTSNetwork[])
 
 	} //End for ADMM iteration
 
+	if (g_ADMM_algorithm_debug_flag == 3)
+	{
+		fprintf(g_ADMM_algorithmic_times_Log, "%0.2f, %0.2f, %0.2f, %0.2f\n", ADMM_Initialization_time, ADMM_LB_time, ADMM_UB_time, ADMM_LMU_time);
+	}
+
 	g_OutAgentCSVFile_FromSimulation_ADMM();
 
 	g_ADMM_FreStop_best_lower_bound.push_back(g_best_lower_bound);
@@ -4661,6 +4749,22 @@ int main(int argc, TCHAR* argv[], TCHAR* envp[])
 		g_ProgramStop();
 	}
 
+	g_LR_algorithmic_times_Log = fopen("output_LR_times_Log.csv", "w");
+
+	if (g_LR_algorithmic_times_Log == NULL)
+	{
+		cout << "File output_LR_times_Log.csv cannot be opened." << endl;
+		g_ProgramStop();
+	}
+
+	g_ADMM_algorithmic_times_Log = fopen("output_ADMM_times_Log.csv", "w");
+
+	if (g_ADMM_algorithmic_times_Log == NULL)
+	{
+		cout << "File output_ADMM_times_Log.csv cannot be opened." << endl;
+		g_ProgramStop();
+	}
+
 	// step 1: read input data of network and demand agent
 	g_ReadInputData();
 
@@ -4680,7 +4784,9 @@ int main(int argc, TCHAR* argv[], TCHAR* envp[])
 	fclose(g_pFileDebugLog);
 	fclose(g_pFileDebugLog_LR);
 	fclose(g_LR_iteration_Log);
-
+	fclose(g_LR_algorithmic_times_Log);	
+	fclose(g_ADMM_algorithmic_times_Log);
+	
 	cout << "End of Optimization " << endl;
 	cout << "free memory.." << endl;
 	cout << "done." << endl;
